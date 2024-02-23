@@ -44,7 +44,7 @@ def readchunk(pattern,start,data):
 
 spectrestruct = ">"+"H"*1329
 unitblock = ">"+"H"*84
-rechead = ">"+"H"*82+"c"
+rechead = ">"+"H"*82+"b"
 spectresize = struct.calcsize(spectrestruct)
 blocklength = 53997
 specblocklength = 2658
