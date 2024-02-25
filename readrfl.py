@@ -41,9 +41,10 @@ def readchunk(pattern,start,data):
     newstart = start + struct.calcsize(pattern)
     return returndata,newstart,start
 
-
+#fileheadstruct = ">"+"H"*72
+spectreheadst = ">"+"H"*36
 spectrestruct = ">"+"H"*1024
-spectretailst = ">"+"H"*(1329-1024)
+spectretailst = ">"+"H"*(1329-1024-36)
 unitblock = ">"+"H"*84
 rechead = ">"+"H"*82+"b"
 spectresize = struct.calcsize(spectrestruct)
@@ -51,13 +52,19 @@ blocklength = 53997
 specblocklength = 2658
 head = 216
 start = head - struct.calcsize(unitblock)
-for i in range(500000):
+#(filehead,start,readfrom) = readchunk(fileheadstruct,0,data)
+#print(f"0,{readfrom},{filehead}")
+
+for i in range(50):
     if (i)%20 == 0 and i > 0:
         (recheaddata,start,readfrom) = readchunk(rechead,start,data)
         print(f"{i+1},{readfrom},{recheaddata}")
     if (i)%5 == 0 :
         (unitdata,start,readfrom) = readchunk(unitblock,start,data)
         print(f"{i+1},{readfrom},{unitdata}")
+    if (i > 0):
+        (spectrehead,start,readfrom) = readchunk(spectreheadst,start,data)
+        print(f"{i+1},{readfrom},{spectrehead}")
     (spectre,start,readfrom) = readchunk(spectrestruct,start,data)
     print(f"{i+1},{readfrom},{spectre}")
     (spectretail,start,readfrom) = readchunk(spectretailst,start,data)
