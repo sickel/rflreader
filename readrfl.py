@@ -38,11 +38,12 @@ Searching for [0, 0, 0, 0, 3, 4, 2, 1, 5, 1, 3, 7, 4, 7, 4, 6, 8, 10, 10, 22, 23
 
 def readchunk(pattern,start,data):
     returndata = struct.unpack_from(pattern,data,start)
-    start += struct.calcsize(pattern)
-    return returndata,start
+    newstart = start + struct.calcsize(pattern)
+    return returndata,newstart,start
 
 
-spectrestruct = ">"+"H"*1329
+spectrestruct = ">"+"H"*1024
+spectretailst = ">"+"H"*(1329-1024)
 unitblock = ">"+"H"*84
 rechead = ">"+"H"*82+"b"
 spectresize = struct.calcsize(spectrestruct)
@@ -52,13 +53,15 @@ head = 216
 start = head - struct.calcsize(unitblock)
 for i in range(50):
     if (i)%20 == 0 and i > 0:
-        (recheaddata,start) = readchunk(rechead,start,data)
-        print(f"{i+1},{start},{recheaddata}")
+        (recheaddata,start,readfrom) = readchunk(rechead,start,data)
+        print(f"{i+1},{readfrom},{recheaddata}")
     if (i)%5 == 0 :
-        (unitdata,start) = readchunk(unitblock,start,data)
-        print(f"{i+1},{start},{unitdata}")
-    spectre = struct.unpack_from(spectrestruct,data,start)
-    print(f"{i+1},{start},{spectre}")
-    start += struct.calcsize(spectrestruct)
+        (unitdata,start,readfrom) = readchunk(unitblock,start,data)
+        print(f"{i+1},{readfrom},{unitdata}")
+    (spectre,start,readfrom) = readchunk(spectrestruct,start,data)
+    print(f"{i+1},{readfrom},{spectre}")
+    (spectretail,start,readfrom) = readchunk(spectretailst,start,data)
+    print(f"{i+1},{readfrom},{spectretail}")
+    
     #print(i+1,start,spectre[0:10],spectre[-60:])
 sys.exit()
