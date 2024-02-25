@@ -20,6 +20,17 @@ with open(filename,'rb') as file:
     data = file.read()
     
 print("read")
+print(len(data))
+if False: # Used for searching for long values
+    for i in range(8):
+        start = i
+        longlong = "d"*20
+        longlonglength = struct.calcsize(longlong)
+        while start < 53997:
+            print(i,start,struct.unpack_from(longlong,data,start))
+            start += longlonglength
+
+    sys.exit()
 
 """
 read
@@ -48,22 +59,22 @@ structs = {
 'spectre': "<"+"H"*1024,
 'spectretail': "<"+"H"*(1329-1024-36),
 'unitblock': "<"+"H"*84,
-'unitend': "<b"+"H"*75,
-'unitstart': "<b"+"H"*8,
-'rechead': "<"+"H"*82+"b",
-'filehead': "<cccc"+"H"*62
+'unitend': "<b"+"H"*74,
+'unitstart': "<"+"bbbLHHHLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
+'rectail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknown
+'filehead': "<cccc"+"H"*61 # Signature, version? unknown, unknown, blocklength, unknown...
 }
 spectresize = struct.calcsize(structs['spectre'])
 blocklength = 53997
 specblocklength = 2658
 head = 216
-start = head - struct.calcsize(structs['spectrehead']) 
+
 (filehead,start,readfrom) = readchunk(structs['filehead'],0,data)
 print(f"0,filehead,{readfrom},{filehead}")
-
-for i in range(50):
+print(filehead[7])
+for i in range(201):
     if (i)%20 == 0 and i > 0:
-        st = 'rechead'
+        st = 'rectail'
         (recheaddata,start,readfrom) = readchunk(structs[st],start,data)
         print(f"{i+1},{st},{readfrom},{recheaddata}")
     if (i)%5 == 0: # and i > 0 :
@@ -74,15 +85,15 @@ for i in range(50):
         st ='spectrehead'
         (spectrehead,start,readfrom) = readchunk(structs[st],start,data)
         print(f"{i+1},{st},{readfrom},{spectrehead}")
-    if (i+1)%5 == 0:
-        st = 'unitend'
-        (unitend,start,readfrom) = readchunk(structs[st],start,data)
-        print(f"{i+1},{st},{readfrom},{unitend}")
     st = 'spectre'
     (spectre,start,readfrom) = readchunk(structs[st],start,data)
     print(f"{i+1},{st},{readfrom},{spectre}")
     st = 'spectretail'
     (spectretail,start,readfrom) = readchunk(structs[st],start,data)
     print(f"{i+1},{st},{readfrom},{spectretail}")
+    if (i+1)%5 == 0:
+        st = 'unitend'
+        (unitend,start,readfrom) = readchunk(structs[st],start,data)
+        print(f"{i+1},{st},{readfrom},{unitend}")
     
     #print(i+1,start,spectre[0:10],spectre[-60:])
