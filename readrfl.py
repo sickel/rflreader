@@ -51,7 +51,7 @@ blocklength = 53997
 specblocklength = 2658
 head = 216
 start = head - struct.calcsize(unitblock)
-for i in range(50):
+for i in range(500000):
     if (i)%20 == 0 and i > 0:
         (recheaddata,start,readfrom) = readchunk(rechead,start,data)
         print(f"{i+1},{readfrom},{recheaddata}")
