@@ -6,7 +6,7 @@ import struct
 
 filename = sys.argv[1]
 buffer_size = 4096*1024*11
-le = False
+le = True # confirmed with block size in 
 fieldtype = "h"
 fieldsize = 2   
 
@@ -37,6 +37,7 @@ Searching for [0, 0, 0, 0, 3, 4, 2, 1, 5, 1, 3, 7, 4, 7, 4, 6, 8, 10, 10, 22, 23
 """
 
 def readchunk(pattern,start,data):
+    last = start
     returndata = struct.unpack_from(pattern,data,start)
     newstart = start + struct.calcsize(pattern)
     return returndata,newstart,start
@@ -85,4 +86,3 @@ for i in range(50):
     print(f"{i+1},{st},{readfrom},{spectretail}")
     
     #print(i+1,start,spectre[0:10],spectre[-60:])
-sys.exit()
