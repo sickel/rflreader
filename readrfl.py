@@ -6,7 +6,7 @@ import struct
 
 filename = sys.argv[1]
 buffer_size = 4096*1024*11
-le = False
+le = True # confirmed with block size in 
 fieldtype = "h"
 fieldsize = 2   
 
@@ -37,28 +37,35 @@ Searching for [0, 0, 0, 0, 3, 4, 2, 1, 5, 1, 3, 7, 4, 7, 4, 6, 8, 10, 10, 22, 23
 """
 
 def readchunk(pattern,start,data):
+    last = start
     returndata = struct.unpack_from(pattern,data,start)
     start += struct.calcsize(pattern)
-    return returndata,start
+    return returndata,start,last
 
 
-spectrestruct = ">"+"H"*1329
-unitblock = ">"+"H"*84
-rechead = ">"+"H"*82+"b"
+spectrestruct = bo+"H"*1024
+spectremetastruct = bo+"H"*308  
+unitblock = bo+"H"*86   
+rechead = bo+"H"*82+"b"
 spectresize = struct.calcsize(spectrestruct)
-blocklength = 53997
+blocklength0 = 53997
+blocklength = struct.unpack_from(bo+"H",data,10)[0]
+if blocklength != blocklength0:
+    print("Reading problem")
+    sys.exit()
 specblocklength = 2658
 head = 216
 start = head - struct.calcsize(unitblock)
-for i in range(50):
-    if (i)%20 == 0 and i > 0:
-        (recheaddata,start) = readchunk(rechead,start,data)
-        print(f"{i+1},{start},{recheaddata}")
+for i in range(200):
+    if (i)%20 == 0  and i > 0:
+        (recheaddata,start,last) = readchunk(rechead,start,data)
+        print(f"{i+1},{last},{recheaddata}")
     if (i)%5 == 0 :
-        (unitdata,start) = readchunk(unitblock,start,data)
-        print(f"{i+1},{start},{unitdata}")
-    spectre = struct.unpack_from(spectrestruct,data,start)
-    print(f"{i+1},{start},{spectre}")
-    start += struct.calcsize(spectrestruct)
-    #print(i+1,start,spectre[0:10],spectre[-60:])
+        (unitdata,start,last) = readchunk(unitblock,start,data)
+        print(f"{i+1},{last},{unitdata}")
+    (spectre,start,last) = readchunk(spectrestruct,start,data)
+    print(f"{i+1},{last},{spectre}")
+    (spectremeta,start,last) = readchunk(spectremetastruct,start,data)
+    print(f"{i+1},{last},{spectremeta}")
+    
 sys.exit()
