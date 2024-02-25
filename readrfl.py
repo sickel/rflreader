@@ -5,11 +5,8 @@ import struct
 
 
 filename = sys.argv[1]
-buffer_size = 4096*1024*11
-le = True # confirmed with block size in 
-fieldtype = "h"
-fieldsize = 2   
 
+le = True # confirmed with block size in file header
 if le:
     bo = '<'
 else:
@@ -21,11 +18,11 @@ with open(filename,'rb') as file:
     
 print("read")
 print(len(data))
-if False: # Used for searching for long values
+if False: # Used for searching for values
+    longlong = bo+("I"*20)
+    longlonglength = struct.calcsize(longlong)
     for i in range(8):
         start = i
-        longlong = "d"*20
-        longlonglength = struct.calcsize(longlong)
         while start < 53997:
             print(i,start,struct.unpack_from(longlong,data,start))
             start += longlonglength
@@ -55,7 +52,8 @@ def readchunk(pattern,start,data):
 
 #fileheadstruct = ">"+"H"*72
 structs = {
-'spectrehead': "<"+"H"*36,
+#'spectrehead': "<"+"H"*36,
+'spectrehead': "<"+"H"*14+"I"+"H"*20, # 28B unknown , I livetime (us/s) , 40B unknown
 'spectre': "<"+"H"*1024,
 'spectretail': "<"+"H"*(1329-1024-36),
 'unitblock': "<"+"H"*84,
