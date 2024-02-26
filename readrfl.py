@@ -34,15 +34,18 @@ def readchunk(pattern,start,data):
     return returndata,newstart,start
 
 structs = {
-'spectrehead': "<"+"H"*14+"I"+"H"*20, # 28B unknown , I livetime (us/s) , 40B unknown
+#'spectrehead': "<"+"H"*14+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+'spectrehead': "<"+"H"*5+"B"*2+"H"*8+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
 'spectre': False, # To be determined from unitstart
-'spectretail': "<"+"H"*(1329-1024-36),
+'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
 'unittail': "<b"+"H"*74,    
 'unitstart': "<"+"bbbLHHHLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
+#'unitstart': "<"+"bbbLbbbbbbLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
 'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
 'filehead': "<cccc"+"H"*61 # Signature, version? unknown, unknown, samplelength, unknown...
 }
 
+print('spectre#,blocktype,start')
 (filehead,start,readfrom) = readchunk(structs['filehead'],0,data)
 print(f"0,filehead,{readfrom},{filehead}")
 signature = b''.join(filehead[0:4])
@@ -57,7 +60,6 @@ if filehead[4] != 1:
     print(f'Wrong file version: {filehead[4]}')
     sys.exit(3)
     
-
 if filehead[7] != samplelength:
     print(f"Expected samplelength {samplelength}, found samplelength {filehead[7]}")
     sys.exit(3)
@@ -77,7 +79,7 @@ if searchchar:
 i = 0
 if os.environ.get("RFL_READLIMIT") == '1':
     # To be used to have a smaller output for testing
-    datasize = 500000
+    datasize = 4000000
     
 measurements = []
 sample = {'units':[]}
@@ -118,6 +120,7 @@ while start <= datasize:
             print(f"{i+1},{st},{readfrom},{sampletaildata}")
             # 'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
             sample['gpsxyz']=sampletaildata[10:13]
+            sample['sample#']=sampletaildata[6]
             measurements.append(sample)
             sample = {'units':[]}
         i += 1
@@ -129,4 +132,5 @@ while start <= datasize:
             print(e)
             sys.exit(5)
         break
-print(measurements, file = sys.stderr)
+if os.environ.get("RFL_DUMPDATA"):
+    print(measurements, file = sys.stderr)
