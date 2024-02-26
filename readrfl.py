@@ -37,9 +37,9 @@ structs = {
 'spectrehead': "<"+"H"*14+"I"+"H"*20, # 28B unknown , I livetime (us/s) , 40B unknown
 'spectre': False, # To be determined from unitstart
 'spectretail': "<"+"H"*(1329-1024-36),
-'unitend': "<b"+"H"*74,
+'unittail': "<b"+"H"*74,    
 'unitstart': "<"+"bbbLHHHLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
-'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknown
+'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
 'filehead': "<cccc"+"H"*61 # Signature, version? unknown, unknown, samplelength, unknown...
 }
 
@@ -74,45 +74,59 @@ if searchchar:
             start += longlonglength
     sys.exit()
     
-measurement = {}
 i = 0
 if os.environ.get("RFL_READLIMIT") == '1':
     # To be used to have a smaller output for testing
-    datasize = 1000000
-    print("Limiting")
+    datasize = 500000
     
+measurements = []
+sample = {'units':[]}
 while start <= datasize:
-# for i in range(201):
     try:
         if (i)%5 == 0: # and i > 0 :
             st = 'unitstart'
+            unit = {'spectres':[]}
             (unitdata,start,readfrom) = readchunk(structs[st],start,data)
+            # 'unitstart': "<"+"bbbLHHHLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
+            unit['epoch'] = unitdata[3]
+            unit['epochnext'] = unitdata[7]
             print(f"{i+1},{st},{readfrom},{unitdata}")
             if not structs ['spectre']:
                 structs['spectre'] = "<"+"H"*unitdata[8]
-        if (i > 0) or True:
-            st ='spectrehead'
-            (spectrehead,start,readfrom) = readchunk(structs[st],start,data)
-            print(f"{i+1},{st},{readfrom},{spectrehead}")
+        st ='spectrehead'
+        (spectrehead,start,readfrom) = readchunk(structs[st],start,data)
+        print(f"{i+1},{st},{readfrom},{spectrehead}")
+        spectredata={'livetime':spectrehead[14]}
         st = 'spectre'
         (spectre,start,readfrom) = readchunk(structs[st],start,data)
+        spectredata['spectre'] = spectre
+        unit['spectres'].append(spectredata)
         print(f"{i+1},{st},{readfrom},{spectre}")
         st = 'spectretail'
         (spectretail,start,readfrom) = readchunk(structs[st],start,data)
         print(f"{i+1},{st},{readfrom},{spectretail}")
         if (i+1)%5 == 0:
-            st = 'unitend'
+            st = 'unittail'
             (unitend,start,readfrom) = readchunk(structs[st],start,data)
             print(f"{i+1},{st},{readfrom},{unitend}")
-        if (i+1)%20 == 0 and i > 0:
+            sample['units'].append(unit)
+        samplefinished = False
+        if (i+1)%20 == 0:
             st = 'sampletail'
-            (recheaddata,start,readfrom) = readchunk(structs[st],start,data)
-            print(f"{i+1},{st},{readfrom},{recheaddata}")
+            samplefinished = True
+            (sampletaildata,start,readfrom) = readchunk(structs[st],start,data)
+            print(f"{i+1},{st},{readfrom},{sampletaildata}")
+            # 'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
+            sample['gpsxyz']=sampletaildata[10:13]
+            measurements.append(sample)
+            sample = {'units':[]}
         i += 1
     except struct.error as e:
-        if st != 'unitstart':
+        if not samplefinished:
+            # Read incomplete data sets
             print("Reading error")
             print(st)
             print(e)
             sys.exit(5)
         break
+print(measurements, file = sys.stderr)
