@@ -2,15 +2,16 @@
 
 import sys
 import struct
+import os
 
+filename = sys.argv[1]
+searchchar = False
+if len(sys.argv[2]):
+    searchchar = sys.argv[2]
 
-    filename = sys.argv[1]
-
-le = True # confirmed with block size in file header
-if le:
-    bo = '<'
-else:
-    bo = '>'
+blocklength = 53997
+specblocklength = 2658
+head = 216
 
 
 with open(filename,'rb') as file:
@@ -18,31 +19,15 @@ with open(filename,'rb') as file:
     
 print("read")
 print(len(data))
-if False: # Used for searching for values
-    longlong = bo+("I"*20)
+if searchchar: # Used for searching for values in first block
+    longlong = "<"+(searchchar*20)
     longlonglength = struct.calcsize(longlong)
-    for i in range(8):
+    for i in range(struct.calcsize(searchchar)):
         start = i
-        while start < 53997:
+        while start < blocklengths:
             print(i,start,struct.unpack_from(longlong,data,start))
             start += longlonglength
-
     sys.exit()
-
-"""
-read
-Searching for [0, 0, 0, 0, 1, 2, 0, 4, 3, 2, 7, 6, 8, 6, 9, 6, 10, 7, 11, 13]
-Found @108, 108 from last
-Searching for [0, 0, 0, 0, 2, 3, 3, 3, 2, 3, 5, 1, 3, 2, 3, 2, 0, 5, 5]
-Found @1437, 1329 from last
-Searching for [0, 0, 0, 0, 0, 0, 0, 6, 5, 3, 3, 6, 4, 1, 11, 11, 6, 8, 6, 8]
-Found @54105, 52668 from last
-Searching for [0, 0, 0, 0, 2, 4, 3, 1, 5, 11, 3, 5, 7, 5, 5, 5, 7, 10, 9, 13, 12]
-Found @108102, 53997 from last
-Searching for [0, 0, 0, 0, 2, 2, 4, 4, 1, 2, 4, 4, 3, 4, 9, 4, 8, 5, 15, 12, 9]
-Found @162099, 53997 from last
-Searching for [0, 0, 0, 0, 3, 4, 2, 1, 5, 1, 3, 7, 4, 7, 4, 6, 8, 10, 10, 22, 23]
-"""
 
 def readchunk(pattern,start,data):
     last = start
@@ -63,9 +48,6 @@ structs = {
 'filehead': "<cccc"+"H"*61 # Signature, version? unknown, unknown, blocklength, unknown...
 }
 spectresize = struct.calcsize(structs['spectre'])
-blocklength = 53997
-specblocklength = 2658
-head = 216
 
 (filehead,start,readfrom) = readchunk(structs['filehead'],0,data)
 print(f"0,filehead,{readfrom},{filehead}")
