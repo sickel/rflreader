@@ -17,10 +17,8 @@ There is a file header, a header and footer for  each detector and each spectre
 there is a footer for each sample
 """
 
-samplelength= 53997
-speclength= 2658
-head = 216
 
+samplelength= 53997
 
 with open(filename,'rb') as file:
     data = file.read()
@@ -34,14 +32,14 @@ def readchunk(pattern,start,data):
     return returndata,newstart,start
 
 structs = {
-'filehead': "<cccc"+"H"*61, # Signature, version? unknown, unknown, samplelength, unknown.
-'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
-'unithead': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
-'spectrehead': "<"+"H"*5+"B"*2+"H"*8+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
-'spectre': False, # To be determined from unithead
-'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
-'unittail': "<bbbbLHH"+"H"*74,    
-'sampletail':  "<"+"H"*3+"bbddd"+"H"*61, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns
+    'filehead': "<cccc"+"H"*61, # Signature, version? unknown, unknown, samplelength, unknown.
+    'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
+    'unithead': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
+    'spectrehead': "<"+"H"*5+"B"*2+"H"*8+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+    'spectre': False, # To be determined from unithead
+    'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
+    'unittail': "<bbbbLHH"+"H"*74,    
+    'sampletail':  "<"+"H"*3+"bbddd"+"H"*61, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns
 }
 
 print('spectre#,blocktype,start')
@@ -75,13 +73,12 @@ if searchchar:
             start += longlonglength
     sys.exit()
 i = 0
-if os.environ.get("RFL_READLIMIT") == '1':
+if os.environ.get("RFL_READLIMIT"):
     # To be used to have a smaller output for testing
     datasize = int(datasize/10)
 
-
 prevsample = None
-ignoreerror = False
+ignoreerror = os.environ.get("RFL_IGNOREERROR")
 
 measurements = []
 sample = {'units':[]}
@@ -145,3 +142,19 @@ while start <= datasize:
         break
 if os.environ.get("RFL_DUMPDATA"):
     print(measurements, file = sys.stderr)
+
+
+# https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
+"""
+import pyproj
+
+transformer = pyproj.Transformer.from_crs(
+    {"proj":'geocent', "ellps":'WGS84', "datum":'WGS84'},
+    {"proj":'latlong', "ellps":'WGS84', "datum":'WGS84'},
+    )
+x = 652954.1006
+y = 4774619.7919
+z = -2217647.7937
+lon1, lat1, alt1 = transformer.transform(x,y,z,radians=False)
+print (lat1, lon1, alt1 )
+"""
