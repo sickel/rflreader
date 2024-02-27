@@ -38,10 +38,12 @@ structs = {
 'spectrehead': "<"+"H"*5+"B"*2+"H"*8+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
 'spectre': False, # To be determined from unitstart
 'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
-'unittail': "<b"+"H"*74,    
-'unitstart': "<"+"bbbLHHHLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
-#'unitstart': "<"+"bbbLbbbbbbLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
-'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
+'unittail': "<bbbbLHH"+"H"*74,    
+'unitstart': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
+'samplehead': "<bbbLHH",
+#'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
+'sampletail':  "<"+"H"*3+"bbddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
+#bbbLHH
 'filehead': "<cccc"+"H"*61 # Signature, version? unknown, unknown, samplelength, unknown...
 }
 
@@ -79,22 +81,27 @@ if searchchar:
 i = 0
 if os.environ.get("RFL_READLIMIT") == '1':
     # To be used to have a smaller output for testing
-    datasize = 4000000
+    datasize = int(datasize/10)
     
 measurements = []
 sample = {'units':[]}
 while start <= datasize:
     try:
+        if (i)%20 == 0: 
+            st = 'samplehead'
+            (sampledata,start,readfrom) = readchunk(structs[st],start,data)
+            print(f"{i+1},{st},{readfrom},{sampledata}")
+            sample = {'units':[], 'epoch': sampledata[3]}
         if (i)%5 == 0: # and i > 0 :
             st = 'unitstart'
             unit = {'spectres':[]}
             (unitdata,start,readfrom) = readchunk(structs[st],start,data)
             # 'unitstart': "<"+"bbbLHHHLH", # Unknown, Unknown, UTC-time, Unknown, Unknown, Unknown, UTC-time +1 sec, number of chs.
-            unit['epoch'] = unitdata[3]
-            unit['epochnext'] = unitdata[7]
             print(f"{i+1},{st},{readfrom},{unitdata}")
+            #unit['epoch'] = unitdata[3]
+            unit['epochnext'] = unitdata[2]
             if not structs ['spectre']:
-                structs['spectre'] = "<"+"H"*unitdata[8]
+                structs['spectre'] = "<"+"H"*unitdata[3]
         st ='spectrehead'
         (spectrehead,start,readfrom) = readchunk(structs[st],start,data)
         print(f"{i+1},{st},{readfrom},{spectrehead}")
@@ -122,13 +129,12 @@ while start <= datasize:
             sample['gpsxyz']=sampletaildata[10:13]
             sample['sample#']=sampletaildata[6]
             measurements.append(sample)
-            sample = {'units':[]}
+            
         i += 1
     except struct.error as e:
         if not samplefinished:
             # Read incomplete data sets
-            print("Reading error")
-            print(st)
+            print(f"Reading error in {st}")
             print(e)
             sys.exit(5)
         break
