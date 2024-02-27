@@ -34,14 +34,14 @@ def readchunk(pattern,start,data):
     return returndata,newstart,start
 
 structs = {
+'filehead': "<cccc"+"H"*61, # Signature, version? unknown, unknown, samplelength, unknown.
+'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
+'unithead': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
 'spectrehead': "<"+"H"*5+"B"*2+"H"*8+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
-'spectre': False, # To be determined from unitstart
+'spectre': False, # To be determined from unithead
 'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
 'unittail': "<bbbbLHH"+"H"*74,    
-'unitstart': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
-'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
 'sampletail':  "<"+"H"*3+"bbddd"+"H"*61, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns
-'filehead': "<cccc"+"H"*61 # Signature, version? unknown, unknown, samplelength, unknown...
 }
 
 print('spectre#,blocktype,start')
@@ -100,7 +100,7 @@ while start <= datasize:
             sample = {'units':[], 'epoch': sampledata[3],'sampleid':sampleid}
             prevsample = sampleid
         if (i)%5 == 0: 
-            st = 'unitstart'
+            st = 'unithead'
             unit = {'spectres':[]}
             (unitdata,start,readfrom) = readchunk(structs[st],start,data)
             print(f"{i+1},{st},{readfrom},{unitdata}")
