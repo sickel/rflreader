@@ -22,7 +22,7 @@ class rflreader:
             newstart = start + struct.calcsize(pattern)
             return returndata,newstart,start
 
-    def __init__(self,filename,printout=True):
+    def __init__(self,filename,printout=False):
         with open(filename,'rb') as file:
             data = file.read()
         self.data = data
@@ -46,7 +46,7 @@ class rflreader:
 
 
 
-    def rflparse(self,data = None, datasize = None):
+    def rflparse(self,start =0, data = None, datasize = None):
         if data is None:
             data = self.data
         if datasize is None:
@@ -64,29 +64,30 @@ class rflreader:
         }
         if self.printout:
             print('spectre#,blocktype,start')
-        (filehead,start,readfrom) = self.readchunk(structs['filehead'],0,data)
-        if self.printout:
-            print(f"0,filehead,{readfrom},{filehead}")
-        signature = b''.join(filehead[0:4])
+        if start == 0:
+            (filehead,start,readfrom) = self.readchunk(structs['filehead'],start,data)
+            if self.printout:
+                print(f"0,filehead,{readfrom},{filehead}")
+            signature = b''.join(filehead[0:4])
 
-        #  Checking that the file is as expected
+            #  Checking that the file is as expected
 
-        if signature != b'RSRL':
-            print('Wrong file type signature: ',signature)
-            sys.exit(2)
+            if signature != b'RSRL':
+                print('Wrong file type signature: ',signature)
+                sys.exit(2)
 
-        if filehead[4] != 1:
-            print(f'Wrong file version: {filehead[4]}')
-            sys.exit(3)
-            
-        if filehead[7] != rflreader.samplelength:
-            print(f"Expected samplelength {rflreader.samplelength}, found samplelength {filehead[7]}")
-            sys.exit(3)
+            if filehead[4] != 1:
+                print(f'Wrong file version: {filehead[4]}')
+                sys.exit(3)
+                
+            if filehead[7] != rflreader.samplelength:
+                print(f"Expected samplelength {rflreader.samplelength}, found samplelength {filehead[7]}")
+                sys.exit(3)
 
-        i = 0
-        if os.environ.get("RFL_READLIMIT"):
-            # To be used to have a smaller output for testing
-            datasize = int(datasize/10)
+            i = 0
+            if os.environ.get("RFL_READLIMIT"):
+                # To be used to have a smaller output for testing
+                datasize = int(datasize/10)
 
         prevsample = None
         ignoreerror = os.environ.get("RFL_IGNOREERROR")
@@ -103,7 +104,7 @@ class rflreader:
                     sampleid = sampledata[2]
                     if not ignoreerror and prevsample is not None:
                         if (prevsample + 1) % 256 != sampleid:
-                            sys.exit(4)
+                            break
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{sampledata}")
                     sample = {'units':[], 'epoch': sampledata[3],'sampleid':sampleid}
@@ -146,8 +147,8 @@ class rflreader:
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{sampletaildata}")
                     # 'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
-                    sample['gpsxyz']=sampletaildata[10:13]
-                    sample['sample#']=sampletaildata[6]
+                    sample['gpsxyz']=sampletaildata[5:8]
+                    sample['sample#']=sampletaildata[3]
                     measurements.append(sample)
                 i += 1
             except struct.error as e:
@@ -155,11 +156,11 @@ class rflreader:
                     # Read incomplete data sets
                     print(f"Reading error in {st}")
                     print(e)
-                    sys.exit(5)
+                    break
                 break
         if os.environ.get("RFL_DUMPDATA"):
             print(measurements, file = sys.stderr)
-        return measurements
+        return readfrom,measurements
 
 
 # https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
@@ -182,9 +183,10 @@ if __name__ == '__main__':
 
     
     filename = sys.argv[1]
-    reader = rflreader(filename,False)
+    reader = rflreader(filename,True)
     if len(sys.argv) >2:
         searchchar = sys.argv[2]
         reader.searchfor(searchchar)
-    reader.rflparse()
-        
+        sys.exit()
+    readfrom,measurements = reader.rflparse()
+    print(readfrom,len(measurements))
