@@ -163,22 +163,6 @@ class rflreader:
         return readfrom,measurements
 
 
-# https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
-"""
-import pyproj
-
-transformer = pyproj.Transformer.from_crs(
-    {"proj":'geocent', "ellps":'WGS84', "datum":'WGS84'},
-    {"proj":'latlong', "ellps":'WGS84', "datum":'WGS84'},
-    )
-x = 652954.1006
-y = 4774619.7919
-z = -2217647.7937
-lon1, lat1, alt1 = transformer.transform(x,y,z,radians=False)
-print (lat1, lon1, alt1 )
-"""
-
-
 if __name__ == '__main__':
 
     
