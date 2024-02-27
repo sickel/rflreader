@@ -60,7 +60,9 @@ class rflreader:
             'spectre': False, # To be determined from unithead
             'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
             'unittail': "<bbbbLHH"+"H"*74,    
-            'sampletail':  "<"+"H"*3+"bbddd"+"H"*61, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns
+            # 'sampletail':  "<"+"H"*3+"bbddd"+"H"*61, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns
+            'sampletail':  "<"+"H"*3+"bbddd"+"H"*19+"dbb"+"H"*37, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns, altitude, unkonwns
+       
         }
         if self.printout:
             print('spectre#,blocktype,start')
@@ -122,7 +124,7 @@ class rflreader:
                 (spectrehead,start,readfrom) = self.readchunk(structs[st],start,data)
                 if self.printout:
                     print(f"{i+1},{st},{readfrom},{spectrehead}")
-                spectredata={'livetime':spectrehead[14]}
+                spectredata={'livetime':spectrehead[15]}
                 st = 'spectre'
                 (spectre,start,readfrom) = self.readchunk(structs[st],start,data)
                 spectredata['spectre'] = spectre
