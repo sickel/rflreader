@@ -56,33 +56,49 @@ class rflreader:
             
         structs = {
             'filehead': "<4s"+"H"*61, # Signature, version? versjon? , unknown, samplelength, max recs, n recs, active/finished, filenr, padding (?)
-            'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
-            'unithead': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
-            'spectrehead': "<"+"H"*5+"B"*2+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+            'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstants
+            #'unithead': "<BBLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
+            #'spectrehead': "<"+"H"*5+"B"*2+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+            'unithead': "<BLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
+            'spectrehead': "<"+"BHBBHHHB"+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+            
             'spectre': False, # To be determined from unithead
-            'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
-            'unittail': "<bbbbLHH"+"H"*57+"bffb"+"H"*12, # Pressure, temperature
+            'spectretail': "<"+"H"*(272), # 0 - 255: Downsampled spectre
+            #'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectrqe
+            'unittail': "<bbbbLHH"+"H"*57+"bffb"+"H"*9, # Pressure, temperature
             'sampletail':  "<"+"H"*3+"bbddd"+"H"*19+"d"+"H"*38, # Unknown, GPSsmplflag?,unknown, unknown, GPS|smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns, altitude, unkonwns
        
         }
-        fieldidxs = {'sample#':3, 
-                     'pressure': 65, 
-                     'temperature': 66, 
-                     'altitude': 27,
-                     'livetime': 14,
-                     'signature': 0,
-                     'version': 2,
-                     'samplelength': 4,
-                     'samplesinfile': 7}
+        fieldidxs = {'signature': 0,     # filehead
+                     'version': 2,       # filehead
+                     'samplelength': 4,  # filehead
+                     'samplesinfile': 7, # filehead
+                     'active': 8,        # filehead
+                     'filenr': 9,        # filehead
+                     'sample#':2,        # samplehead
+                     'UTC': 3,           # samplehead
+                     'noofchs': 2,       # unithead
+                     'livetime': 14,     # spectrehead
+                     'totcounts': 29,    # spectrehead
+                     'cosmiccounts': 32, # spectrehead
+                     'crystalid': 8,     # spectrehead
+                     'unitspectre#': 9,  # spectrehead
+                     'pressure': 65,     # unittail
+                     'temperature': 66,  # unittail
+                     'gpxx': 5,          # sampletail
+                     'gpxy': 6,          # sampletail
+                     'gpxz': 7,          # sampletail
+                     'altitude': 27,     # sampletail
+                     }
         if self.printout:
             print('spectre#,blocktype,start')
-        if start == 0:
+        if start == 0: # Reading file from start, must define
             (filehead,start,readfrom) = self.readchunk(structs['filehead'],start,data)
             if self.printout:
                 print(f"0,filehead,{readfrom},{filehead}")
             signature = filehead[fieldidxs['signature']]
+            
             #  Checking that the file is as expected
-
             if signature != b'RSRL':
                 print('Wrong file type signature: ',signature)
                 sys.exit(2)
@@ -95,7 +111,6 @@ class rflreader:
                 print(f"Expected samplelength {rflreader.samplelength}, found samplelength {filehead[fieldidxs['samplelength']]}")
                 sys.exit(3)
 
-            i = 0
             if os.environ.get("RFL_READLIMIT"):
                 # To be used to have a smaller output for testing
                 datasize = int(datasize/10)
@@ -106,14 +121,15 @@ class rflreader:
         measurements = []
         sample = {'units':[]}
         nsample = 1
+        i = 0 # Counting spectra
         while start <= datasize:
             # Five crystals in one detectors
             # Four detectors in one sample
             try:
-                if (i)%20 == 0: 
+                if (i)%20 == 0: # Starting a new sample
                     st = 'samplehead'
                     (sampledata,start,readfrom) = self.readchunk(structs[st],start,data)
-                    sampleid = sampledata[2]
+                    sampleid = sampledata[fieldidxs['sample#']]
                     if not ignoreerror and prevsample is not None:
                         if nsample > filehead[fieldidxs['samplesinfile']]:
                             break
@@ -121,10 +137,10 @@ class rflreader:
                         #    break
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{sampledata}")
-                    sample = {'units':[], 'epoch': sampledata[3],'sampleid':sampleid}
+                    sample = {'units':[], 'epoch': sampledata[fieldidxs['UTC']],'sampleid':sampleid}
                     prevsample = sampleid
                     nsample += 1
-                if (i)%5 == 0: 
+                if (i)%5 == 0: # Starting sample from a new crystal pack
                     st = 'unithead'
                     unit = {'spectres': [], 
                             'pressure': None,
@@ -134,8 +150,8 @@ class rflreader:
                         print(f"{i+1},{st},{readfrom},{unitdata}")
                     unit['epochnext'] = unitdata[2]
                     if not structs ['spectre']:
-                        structs['spectre'] = "<"+"H"*unitdata[3]
-                st ='spectrehead'
+                        structs['spectre'] = "<"+"H"*unitdata[fieldidxs['noofchs']]
+                st ='spectrehead' # New spectra in a crystalpack
                 (spectrehead,start,readfrom) = self.readchunk(structs[st],start,data)
                 if self.printout:
                     print(f"{i+1},{st},{readfrom},{spectrehead}")
@@ -150,7 +166,7 @@ class rflreader:
                 (spectretail,start,readfrom) = self.readchunk(structs[st],start,data)
                 if self.printout:
                     print(f"{i+1},{st},{readfrom},{spectretail}")
-                if (i+1)%5 == 0:
+                if (i+1)%5 == 0: # Finishing sample from a crystal pack
                     st = 'unittail'
                     (unitend,start,readfrom) = self.readchunk(structs[st],start,data)
                     if self.printout:
@@ -159,17 +175,15 @@ class rflreader:
                         idx = fieldidxs[field]
                         if unitend[idx] !=0:
                             unit[field] = unitend[idx]
-                            
                     sample['units'].append(unit)
                 samplefinished = False
-                if (i+1)%20 == 0:
+                if (i+1)%20 == 0: # Finishing sample
                     st = 'sampletail'
                     samplefinished = True
                     (sampletaildata,start,readfrom) = self.readchunk(structs[st],start,data)
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{sampletaildata}")
-                    # 'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
-                    sample['gpsxyz']=sampletaildata[5:8]
+                    sample['gpsxyz']=sampletaildata[fieldidxs['gpxx']:fieldidxs['gpxz']+1]
                     sample['sample#']=sampletaildata[fieldidxs['sample#']]
                     sample['altitude'] = sampletaildata[fieldidxs['altitude']]
                     measurements.append(sample)
