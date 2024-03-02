@@ -30,18 +30,20 @@ class rflreader:
         self.printout = printout
         # return self.data, self.datasize
 
-    def searchfor(self,searchchar,data = None):
+    def searchfor(self,searchchar,n=1,data = None):
         # Used for searching for values in first block
         # Reading out all possible places for a given datatype within the first block
         if data is None:
             data = self.data
         longlong = "<"+(searchchar*20)
         longlonglength = struct.calcsize(longlong)
-        for i in range(struct.calcsize(searchchar)):
-            start = i
-            while start < rflreader.samplelength:
-                print(i,start,struct.unpack_from(longlong,data,start))
-                start += longlonglength
+        for nsample in range(n):
+            for i in range(struct.calcsize(searchchar)):
+                start = i + rflreader.samplelength * nsample
+                while start < rflreader.samplelength * (nsample +1):
+                    print(i,start,struct.unpack_from(longlong,data,start))
+                    start += longlonglength
+            print(f"=== sample end {nsample+1} ===")
         sys.exit()
 
 
@@ -53,37 +55,44 @@ class rflreader:
             datasize = len(data)
             
         structs = {
-            'filehead': "<cccc"+"H"*61, # Signature, version? unknown, unknown, samplelength, unknown.
+            'filehead': "<4s"+"H"*61, # Signature, version? versjon? , unknown, samplelength, max recs, n recs, active/finished, filenr, padding (?)
             'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
             'unithead': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
-            'spectrehead': "<"+"H"*5+"B"*2+"H"*8+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+            'spectrehead': "<"+"H"*5+"B"*2+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
             'spectre': False, # To be determined from unithead
             'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
-            'unittail': "<bbbbLHH"+"H"*74,    
-            # 'sampletail':  "<"+"H"*3+"bbddd"+"H"*61, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns
-            'sampletail':  "<"+"H"*3+"bbddd"+"H"*19+"dbb"+"H"*37, # Unknown, smplflag?,unknown, unknown, smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns, altitude, unkonwns
+            'unittail': "<bbbbLHH"+"H"*57+"bffb"+"H"*12, # Pressure, temperature
+            'sampletail':  "<"+"H"*3+"bbddd"+"H"*19+"d"+"H"*38, # Unknown, GPSsmplflag?,unknown, unknown, GPS|smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns, altitude, unkonwns
        
         }
+        fieldidxs = {'sample#':3, 
+                     'pressure': 65, 
+                     'temperature': 66, 
+                     'altitude': 27,
+                     'livetime': 14,
+                     'signature': 0,
+                     'version': 2,
+                     'samplelength': 4,
+                     'samplesinfile': 7}
         if self.printout:
             print('spectre#,blocktype,start')
         if start == 0:
             (filehead,start,readfrom) = self.readchunk(structs['filehead'],start,data)
             if self.printout:
                 print(f"0,filehead,{readfrom},{filehead}")
-            signature = b''.join(filehead[0:4])
-
+            signature = filehead[fieldidxs['signature']]
             #  Checking that the file is as expected
 
             if signature != b'RSRL':
                 print('Wrong file type signature: ',signature)
                 sys.exit(2)
 
-            if filehead[4] != 1:
-                print(f'Wrong file version: {filehead[4]}')
+            if filehead[fieldidxs['version']] != 1001:
+                print(f'Wrong file version: {filehead[fieldidxs["version"]]}')
                 sys.exit(3)
                 
-            if filehead[7] != rflreader.samplelength:
-                print(f"Expected samplelength {rflreader.samplelength}, found samplelength {filehead[7]}")
+            if filehead[fieldidxs['samplelength']] != rflreader.samplelength:
+                print(f"Expected samplelength {rflreader.samplelength}, found samplelength {filehead[fieldidxs['samplelength']]}")
                 sys.exit(3)
 
             i = 0
@@ -96,6 +105,7 @@ class rflreader:
 
         measurements = []
         sample = {'units':[]}
+        nsample = 1
         while start <= datasize:
             # Five crystals in one detectors
             # Four detectors in one sample
@@ -105,15 +115,20 @@ class rflreader:
                     (sampledata,start,readfrom) = self.readchunk(structs[st],start,data)
                     sampleid = sampledata[2]
                     if not ignoreerror and prevsample is not None:
-                        if (prevsample + 1) % 256 != sampleid:
+                        if nsample > filehead[fieldidxs['samplesinfile']]:
                             break
+                        #if (prevsample + 1) % 256 != sampleid:
+                        #    break
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{sampledata}")
                     sample = {'units':[], 'epoch': sampledata[3],'sampleid':sampleid}
                     prevsample = sampleid
+                    nsample += 1
                 if (i)%5 == 0: 
                     st = 'unithead'
-                    unit = {'spectres':[]}
+                    unit = {'spectres': [], 
+                            'pressure': None,
+                            'temperature': None}
                     (unitdata,start,readfrom) = self.readchunk(structs[st],start,data)
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{unitdata}")
@@ -124,7 +139,7 @@ class rflreader:
                 (spectrehead,start,readfrom) = self.readchunk(structs[st],start,data)
                 if self.printout:
                     print(f"{i+1},{st},{readfrom},{spectrehead}")
-                spectredata={'livetime':spectrehead[15]}
+                spectredata={'livetime':spectrehead[fieldidxs['livetime']]}
                 st = 'spectre'
                 (spectre,start,readfrom) = self.readchunk(structs[st],start,data)
                 spectredata['spectre'] = spectre
@@ -140,6 +155,11 @@ class rflreader:
                     (unitend,start,readfrom) = self.readchunk(structs[st],start,data)
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{unitend}")
+                    for field in ('temperature','pressure'):
+                        idx = fieldidxs[field]
+                        if unitend[idx] !=0:
+                            unit[field] = unitend[idx]
+                            
                     sample['units'].append(unit)
                 samplefinished = False
                 if (i+1)%20 == 0:
@@ -150,7 +170,8 @@ class rflreader:
                         print(f"{i+1},{st},{readfrom},{sampletaildata}")
                     # 'sampletail': "<"+"H"*9+"bddd"+"H"*61, # Unknown x10, ECEF X, ECEF Y, ECEF Z, unknowns
                     sample['gpsxyz']=sampletaildata[5:8]
-                    sample['sample#']=sampletaildata[3]
+                    sample['sample#']=sampletaildata[fieldidxs['sample#']]
+                    sample['altitude'] = sampletaildata[fieldidxs['altitude']]
                     measurements.append(sample)
                 i += 1
             except struct.error as e:
@@ -166,13 +187,15 @@ class rflreader:
 
 
 if __name__ == '__main__':
-
     
     filename = sys.argv[1]
     reader = rflreader(filename,True)
     if len(sys.argv) >2:
         searchchar = sys.argv[2]
-        reader.searchfor(searchchar)
+        n=1
+        if len(sys.argv) > 3:
+            n = int(sys.argv[3])
+        reader.searchfor(searchchar,n)
         sys.exit()
     readfrom,measurements = reader.rflparse()
     print(readfrom,len(measurements))
