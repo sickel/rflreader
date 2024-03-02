@@ -57,7 +57,7 @@ class rflreader:
         structs = {
             'filehead': "<4s"+"H"*61, # Signature, version? versjon? , unknown, samplelength, max recs, n recs, active/finished, filenr, padding (?)
             'samplehead': "<BBBLHH", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
-            'unithead': "<"+"bbLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
+            'unithead': "<"+"BBLH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
             'spectrehead': "<"+"H"*5+"B"*2+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
             'spectre': False, # To be determined from unithead
             'spectretail': "<"+"H"*(269), # 0 - 255: Downsampled spectre
@@ -65,15 +65,68 @@ class rflreader:
             'sampletail':  "<"+"H"*3+"bbddd"+"H"*19+"d"+"H"*38, # Unknown, GPSsmplflag?,unknown, unknown, GPS|smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns, altitude, unkonwns
        
         }
-        fieldidxs = {'sample#':3, 
-                     'pressure': 65, 
-                     'temperature': 66, 
-                     'altitude': 27,
-                     'livetime': 14,
-                     'signature': 0,
-                     'version': 2,
-                     'samplelength': 4,
-                     'samplesinfile': 7}
+        
+        fieldidxs = {'signature': 0,     # filehead
+                     'version': 2,       # filehead
+                     'samplelength': 4,  # filehead
+                     'samplesinfile': 7, # filehead
+                     'active': 8,        # filehead
+                     'filenr': 9,        # filehead
+                     'sample#':2,        # samplehead
+                     'UTC': 3,           # samplehead
+                     'noofchs': 3,       # unithead
+                     'pressure': 65,     # unittail
+                     'temperature': 66,  # unittail
+                     'livetime': 14,     # spectrehead
+                     'totcounts': 29,    # spectrehead
+                     'cosmiccounts': 32, # spectrehead
+                     'crystalid': 8,     # spectrehead
+                     'unitspectre#': 9,  # spectrehead
+                     'gpxx': 5,          # sampletail
+                     'gpxy': 6,          # sampletail
+                     'gpxz': 7,          # sampletail
+                     'altitude': 27,     # sampletail
+                     }
+        
+        
+        structs = {
+            'filehead': "<4s"+"H"*61, # Signature, version? versjon? , unknown, samplelength, max recs, n recs, active/finished, filenr, padding (?)
+            'samplehead': "<BBBLHHB", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
+            'unithead': "<"+"BLHHH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
+            'spectrehead': "<"+"H"*3+"B"*2+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+            'spectre': False, # To be determined from unithead
+            'spectretail': "<"+"H"*(271), # 0 - 255: Downsampled spectre
+            'unittail': "<bbbbLHH"+"H"*57+"bffb"+"H"*10+"B", # Pressure, temperature
+            'sampletail':  "<B"+"H"*2+"bbddd"+"H"*19+"d"+"H"*38, # Unknown, GPSsmplflag?,unknown, unknown, GPS|smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns, altitude, unkonwns
+       
+        }
+        
+              
+        
+        fieldidxs = {'signature': 0,     # filehead
+                     'version': 2,       # filehead
+                     'samplelength': 4,  # filehead
+                     'samplesinfile': 7, # filehead
+                     'active': 8,        # filehead
+                     'filenr': 9,        # filehead
+                     'sample#':2,        # samplehead
+                     'UTC': 3,           # samplehead
+                     'noofchs': 2,       # unithead
+                     'UTCnext': 2,       # unithead
+                     'pressure': 65,     # unittail
+                     'temperature': 66,  # unittail
+                     'livetime': 14,     # spectrehead
+                     'totcounts': 29,    # spectrehead
+                     'cosmiccounts': 32, # spectrehead
+                     'crystalid': 8,     # spectrehead
+                     'unitspectre#': 9,  # spectrehead
+                     'gpxx': 5,          # sampletail
+                     'gpxy': 6,          # sampletail
+                     'gpxz': 7,          # sampletail
+                     'altitude': 27,     # sampletail
+                     }
+        
+        
         if self.printout:
             print('spectre#,blocktype,start')
         if start == 0:
@@ -113,7 +166,7 @@ class rflreader:
                 if (i)%20 == 0: 
                     st = 'samplehead'
                     (sampledata,start,readfrom) = self.readchunk(structs[st],start,data)
-                    sampleid = sampledata[2]
+                    sampleid = sampledata[fieldidxs['sample#']]
                     if not ignoreerror and prevsample is not None:
                         if nsample > filehead[fieldidxs['samplesinfile']]:
                             break
@@ -121,7 +174,7 @@ class rflreader:
                         #    break
                     if self.printout:
                         print(f"{i+1},{st},{readfrom},{sampledata}")
-                    sample = {'units':[], 'epoch': sampledata[3],'sampleid':sampleid}
+                    sample = {'units':[], 'epoch': sampledata[fieldidxs['UTC']],'sampleid':sampleid}
                     prevsample = sampleid
                     nsample += 1
                 if (i)%5 == 0: 
@@ -134,7 +187,7 @@ class rflreader:
                         print(f"{i+1},{st},{readfrom},{unitdata}")
                     unit['epochnext'] = unitdata[2]
                     if not structs ['spectre']:
-                        structs['spectre'] = "<"+"H"*unitdata[3]
+                        structs['spectre'] = "<"+"H"*unitdata[fieldidxs['noofchs']]
                 st ='spectrehead'
                 (spectrehead,start,readfrom) = self.readchunk(structs[st],start,data)
                 if self.printout:
