@@ -92,11 +92,11 @@ class rflreader:
         structs = {
             'filehead': "<4s"+"H"*61, # Signature, version? versjon? , unknown, samplelength, max recs, n recs, active/finished, filenr, padding (?)
             'samplehead': "<BBBLHHB", # Unkonwn, unkonwn, samplecounter, UTC, systemconstant
-            'unithead': "<"+"BLHHH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
-            'spectrehead': "<"+"H"*3+"B"*2+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
+            'unithead': "<"+"BLHHHH", # Unknown, Unknown, UTC-time +1 sec, number of chs.
+            'spectrehead': "<"+"H"*2+"B"*2+"H"*4+"f"+"H"*2+"I"+"H"*14+"I"+"H"*4, # 14B unknown,2BCrystalid, 2B sample#  pr detector (rollover after 255), I livetime (us/s) ,29: Total count
             'spectre': False, # To be determined from unithead
-            'spectretail': "<"+"H"*(271), # 0 - 255: Downsampled spectre
-            'unittail': "<bbbbLHH"+"H"*57+"bffb"+"H"*10+"B", # Pressure, temperature
+            'spectretail': "<"+"H"*(272), # 0 - 255: Downsampled spectre
+            'unittail': "<bbbbLHH"+"H"*57+"bffb"+"H"*9+"B", # Pressure, temperature
             'sampletail':  "<B"+"H"*2+"bbddd"+"H"*19+"d"+"H"*38, # Unknown, GPSsmplflag?,unknown, unknown, GPS|smplflag? , ECEF X, ECEF Y, ECEF Z, unknowns, altitude, unkonwns
        
         }
